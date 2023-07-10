@@ -8,6 +8,8 @@ import searchengine.enums.Status;
 
 import javax.persistence.*;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "site")
@@ -34,6 +36,10 @@ public class Site {
     @Column(name = "name")
     @NotNull
     private String name;
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "site")
+    private List<Page> pages = new ArrayList<>();
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "site")
+    private List<Page> lemmas = new ArrayList<>();
 
 
 }

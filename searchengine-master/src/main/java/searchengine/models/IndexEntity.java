@@ -17,10 +17,10 @@ public class IndexEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id",nullable = false)
     private Integer id;
-    @Column(name = "page_id", nullable = false)
-    private Integer pageId;
-    @Column(name = "lemma_id", nullable = false)
-    private Integer lemmaId;
-    @Column(name = "rankkk", nullable = false)
+    @Column(name = "rank_index", nullable = false)
     private Float rank;
+    @ManyToOne(cascade = CascadeType.REFRESH, fetch = FetchType.LAZY)
+    private Page page;
+    @ManyToOne(cascade = CascadeType.REFRESH, fetch = FetchType.LAZY)
+    private Lemma lemma;
 }
