@@ -1,22 +1,22 @@
 package searchengine.models;
 
 import com.sun.istack.NotNull;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import searchengine.enums.Status;
 
 import javax.persistence.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Table(name = "site")
-@Data
+@Setter
+@Getter
 @AllArgsConstructor
 @NoArgsConstructor
-public class Site {
+public class SiteEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @NotNull
@@ -27,7 +27,7 @@ public class Site {
     private Status status;
     @Column(name = "status_time")
     @NotNull
-    private LocalDate statusTime;
+    private LocalDateTime statusTime;
     @Column(name = "last_error", columnDefinition = "TEXT")
     private String lastError;
     @Column(name = "url")
@@ -36,10 +36,10 @@ public class Site {
     @Column(name = "name")
     @NotNull
     private String name;
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "site")
-    private List<Page> pages = new ArrayList<>();
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "site")
-    private List<Page> lemmas = new ArrayList<>();
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "site")
+    private List<PageEntity> pages = new ArrayList<>();
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "site")
+    private List<LemmaEntity> lemmas = new ArrayList<>();
 
 
 }
