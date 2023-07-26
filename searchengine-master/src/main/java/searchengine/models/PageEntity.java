@@ -18,7 +18,7 @@ public class PageEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Integer id;
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne(cascade = CascadeType.REMOVE)
     private SiteEntity site;
     @Column(name = "path", columnDefinition = "TEXT", length = 1000, nullable = false)
     private String path;

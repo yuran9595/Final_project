@@ -29,7 +29,7 @@ public class LemmaEntity {
     @Column(name = "frequency")
     @NotNull
     private Integer frequency;
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne(cascade = CascadeType.REMOVE)
     private SiteEntity site;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "lemma")
     private List<IndexEntity> indexes = new ArrayList<>();

@@ -17,8 +17,8 @@ public class IndexEntity {
     private Integer id;
     @Column(name = "rank_index", nullable = false)
     private Float rank;
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne(cascade = CascadeType.REFRESH)
     private PageEntity page;
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne(cascade = CascadeType.REFRESH)
     private LemmaEntity lemma;
 }

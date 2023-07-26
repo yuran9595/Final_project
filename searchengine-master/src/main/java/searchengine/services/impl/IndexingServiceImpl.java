@@ -12,6 +12,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.enums.Status;
@@ -26,7 +27,10 @@ import searchengine.services.IndexingService;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -53,7 +57,8 @@ public class IndexingServiceImpl implements IndexingService {
         for (Site site : sites) {
             SiteEntity siteEntity = transformSiteToSiteEntity(site);
             try {
-                List<PageEntity> pageNames = getPageName(site);
+                saveSiteAndSetSiteStatus(siteEntity, Status.INDEXING);
+                List<PageEntity> pageNames = getPageName(siteEntity);
                 siteEntity.setPages(pageNames);
                 parseLemmas(siteEntity);
                 saveSiteAndSetSiteStatus(siteEntity, Status.INDEXED);
@@ -63,26 +68,18 @@ public class IndexingServiceImpl implements IndexingService {
         }
     }
 
+    @Transactional
     private void deleteAllInformationFromSite() {
         siteRepository.deleteAll();
     }
 
-    private List<PageEntity> getPageName(Site site) {
+    private List<PageEntity> getPageName(SiteEntity siteEntity) {
         List<PageEntity> result = new ArrayList<>();
-//        LuceneMorphology luceneMorph;
-//        try {
-//            luceneMorph = new RussianLuceneMorphology();
-//        } catch (IOException e) {
-//            throw new RuntimeException(e);
-//        }
-//        LemmaService lemmaService = new LemmaService(luceneMorph);
-        SiteEntity entity = transformSiteToSiteEntity(site);
-        SiteEntity siteEntity = saveSiteAndSetSiteStatus(entity, Status.INDEXING);
         PageEntity page;
         int count = 0;
         int count1 = 0;
         try {
-            Document doc = Jsoup.connect(site.getUrl()).userAgent(agentUser)
+            Document doc = Jsoup.connect(siteEntity.getUrl()).userAgent(agentUser)
                     .referrer(referrer).get();
             Elements elementLines = doc.getElementsByTag("a");
             System.out.println(elementLines.size() + " -  Кол-во элементов ");
@@ -98,7 +95,7 @@ public class IndexingServiceImpl implements IndexingService {
                     if (page.getPath().startsWith("http")) {
                         href = page.getPath();
                     } else {
-                        href = site.getUrl() + page.getPath();
+                        href = siteEntity.getUrl() + page.getPath();
                     }
                     try {
                         Document pageDoc = Jsoup.connect(href).userAgent(agentUser)
@@ -108,12 +105,7 @@ public class IndexingServiceImpl implements IndexingService {
                         page.setContent(stringContent);
                         page.setCode(pageDoc.connection().response().statusCode());
                         if (pageRepository.findByPathAndSiteId(page.getPath(), page.getSite().getId()).isEmpty()) {
-                            // PageEntity save = pageRepository.save(page);
                             result.add(page);
-                            //  String resultReg = stringContent.replaceAll("<[^>]*>", "");
-                            // System.out.println(result);
-//                               Map<String, Integer> map = lemmaService.collectLemmas(resultReg);
-                            //  parseLemmas(map, siteEntity, page); // - парсинг лемас
                             count1++;
                             System.out.println(page.getPath() + " - сохраненная страница" + count1);
                             System.out.println("кол-во сохраненных страниц - " + count1);
@@ -146,14 +138,6 @@ public class IndexingServiceImpl implements IndexingService {
         return siteEntity;
     }
 
-    //    private void deleteSiteInformation(Site site) {
-//        Optional<SiteEntity> byUrl = siteRepository.findByUrl(site.getUrl());
-//
-//        if (byUrl.isPresent()) {
-//            siteRepository.delete(byUrl.get());
-//            log.info("Удалены записи по сайту - " + byUrl.get().getUrl());
-//        }
-//    }
     private void setLastErrorToSite(Integer siteId, String lastError) {
         SiteEntity byId = siteRepository.findById(siteId).orElse(null);
         if (byId != null) {
@@ -172,24 +156,25 @@ public class IndexingServiceImpl implements IndexingService {
         }
         LemmaService lemmaService = new LemmaService(luceneMorph);
         List<LemmaEntity> lemmas = site.getLemmas();
-        Map<String, Integer> lemmaListToMap = lemmas
+        Map<String, LemmaEntity> lemmaListToMap = lemmas
                 .stream()
-                .collect(Collectors.toMap(LemmaEntity::getLemma, LemmaEntity::getFrequency));
+                .collect(Collectors.toMap(LemmaEntity::getLemma, Function.identity()));
         for (PageEntity page : site.getPages()) {
             String stringContent = page.getContent();
             String resultReg = stringContent.replaceAll("<[^>]*>", "");
             Map<String, Integer> map = lemmaService.collectLemmas(resultReg);
-            List<IndexEntity> indexEntityList = new ArrayList<>();
             for (Map.Entry<String, Integer> entry : map.entrySet()) {
-                if (lemmaListToMap.containsKey(entry.getKey())) {
-                    lemmaListToMap.put(entry.getKey(), lemmaListToMap.get(entry.getKey()) + 1);
-                } else {
-                    lemmaListToMap.put(entry.getKey(), 1);
-                }
                 LemmaEntity lemmaEntity = new LemmaEntity();
-                lemmaEntity.setLemma(entry.getKey());
-                lemmaEntity.setFrequency(entry.getValue());
-                lemmaEntity.setSite(site);
+                if (lemmaListToMap.containsKey(entry.getKey())) {
+                    lemmaEntity = lemmaListToMap.get(entry.getKey());
+                    lemmaEntity.setFrequency(lemmaEntity.getFrequency() + 1);
+                    lemmaListToMap.put(entry.getKey(), lemmaEntity);
+                } else {
+                    lemmaEntity.setLemma(entry.getKey());
+                    lemmaEntity.setFrequency(entry.getValue());
+                    lemmaEntity.setSite(site);
+                    lemmaListToMap.put(entry.getKey(), lemmaEntity);
+                }
                 IndexEntity indexEntity = new IndexEntity();
                 indexEntity.setLemma(lemmaEntity);
                 indexEntity.setPage(page);
@@ -198,17 +183,7 @@ public class IndexingServiceImpl implements IndexingService {
                 lemmaEntities.add(lemmaEntity);
                 page.getIndexes().add(indexEntity);
             }
-            System.out.println();
         }
-        System.out.println();
-//        for (Map.Entry<String, Integer> entry : lemmaListToMap.entrySet()) {
-//            LemmaEntity lemmaEntity = new LemmaEntity();
-//            lemmaEntity.setLemma(entry.getKey());
-//            lemmaEntity.setFrequency(entry.getValue());
-//            lemmaEntity.setSite(site);
-//            lemmaEntities.add(lemmaEntity);
-//            //todo:  lemmaEntity.setIndexes(); Лист IndexEntity где его взять
-//        }
         site.setLemmas(lemmaEntities);
     }
 }
