@@ -1,7 +1,5 @@
-package searchengine.services.impl;
+package searchengine.threads;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 import org.jsoup.HttpStatusException;
@@ -11,21 +9,15 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.Site;
-import searchengine.config.SitesList;
 import searchengine.enums.Status;
 import searchengine.models.IndexEntity;
 import searchengine.models.LemmaEntity;
 import searchengine.models.PageEntity;
 import searchengine.models.SiteEntity;
-import searchengine.repositories.IndexRepository;
-import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
-import searchengine.services.IndexingService;
-import searchengine.threads.MyThread;
+import searchengine.services.impl.LemmaService;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -35,42 +27,50 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-@Service
-@RequiredArgsConstructor
-@Slf4j
-public class IndexingServiceImpl implements IndexingService {
 
-    private final SitesList sitesList;
-    private final SiteRepository siteRepository;
-    private final PageRepository pageRepository;
-
-    private final LemmaRepository lemmaRepository;
-    private final IndexRepository indexRepository;
-
-    @Value("${user-agent}")
-    private String agentUser;
-    @Value("${referrer}")
-    private String referrer;
-
-
+public class MyThread extends Thread {
+    private Site site;
+    private  SiteRepository siteRepository;
+    private  PageRepository pageRepository;
+//    @Value("${user-agent}")
+//    private String agentUser;
+//    @Value("${referrer}")
+//    private String referrer;
+    public MyThread(Site site, SiteRepository siteRepository, PageRepository pageRepository) {
+        this.site = site;
+        this.siteRepository = siteRepository;
+        this.pageRepository = pageRepository;
+    }
     @Override
-    public void indexing() {
-        deleteAllInformationFromSite();
-        List<Site> sites = sitesList.getSites();
-        for (Site site : sites) {
-            MyThread myThread = new MyThread(site, siteRepository, pageRepository);
-            myThread.start();
+    public void run() {
+        SiteEntity siteEntity = transformSiteToSiteEntity(site);
+        try {
+            saveSiteAndSetSiteStatus(siteEntity, Status.INDEXING);
+            List<PageEntity> pageNames = getPageName(siteEntity);
+            siteEntity.setPages(pageNames);
+            parseLemmas(siteEntity);
+            saveSiteAndSetSiteStatus(siteEntity, Status.INDEXED);
+        } catch (Exception e) {
+            saveSiteAndSetSiteStatus(siteEntity, Status.FAILED);
         }
     }
-
-    @Transactional
-    private void deleteAllInformationFromSite() {
-        indexRepository.deleteAll();
-        siteRepository.deleteAll();
+    private SiteEntity transformSiteToSiteEntity(Site site) {
+        SiteEntity siteEntity = siteRepository.findByUrl(site.getUrl()).orElse(new SiteEntity());
+        siteEntity.setName(site.getName());
+        siteEntity.setUrl(site.getUrl());
+        return siteEntity;
     }
+    private SiteEntity saveSiteAndSetSiteStatus(SiteEntity siteEntity, Status status) {
+        siteEntity.setStatus(status);
+        siteEntity.setStatusTime(LocalDateTime.now());
+        return siteRepository.save(siteEntity);
+    }
+
     private List<PageEntity> getPageName(SiteEntity siteEntity) {
         List<PageEntity> result = new ArrayList<>();
         PageEntity page;
+        String agentUser = "Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6";
+        String referrer = "http://www.google.com";
         int count = 0;
         int count1 = 0;
         try {
@@ -92,7 +92,7 @@ public class IndexingServiceImpl implements IndexingService {
                     } else {
                         href = siteEntity.getUrl() + page.getPath();
                     }
-                    try {
+                    try { // в форк сделать
                         Document pageDoc = Jsoup.connect(href).userAgent(agentUser)
                                 .referrer(referrer).get();
                         String stringContent = pageDoc.toString();
@@ -119,20 +119,6 @@ public class IndexingServiceImpl implements IndexingService {
         }
         return result;
     }
-
-    private SiteEntity saveSiteAndSetSiteStatus(SiteEntity siteEntity, Status status) {
-        siteEntity.setStatus(status);
-        siteEntity.setStatusTime(LocalDateTime.now());
-        return siteRepository.save(siteEntity);
-    }
-
-    private SiteEntity transformSiteToSiteEntity(Site site) {
-        SiteEntity siteEntity = siteRepository.findByUrl(site.getUrl()).orElse(new SiteEntity());
-        siteEntity.setName(site.getName());
-        siteEntity.setUrl(site.getUrl());
-        return siteEntity;
-    }
-
     private void setLastErrorToSite(Integer siteId, String lastError) {
         SiteEntity byId = siteRepository.findById(siteId).orElse(null);
         if (byId != null) {
@@ -140,7 +126,6 @@ public class IndexingServiceImpl implements IndexingService {
             siteRepository.save(byId);
         }
     }
-
     private void parseLemmas(SiteEntity site) {
         LuceneMorphology luceneMorph;
         List<LemmaEntity> lemmaEntities = new ArrayList<>();
@@ -181,4 +166,5 @@ public class IndexingServiceImpl implements IndexingService {
         }
         site.setLemmas(lemmaEntities);
     }
+
 }
