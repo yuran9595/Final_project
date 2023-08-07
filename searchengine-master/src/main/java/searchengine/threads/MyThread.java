@@ -8,7 +8,6 @@ import org.jsoup.UnsupportedMimeTypeException;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.springframework.beans.factory.annotation.Value;
 import searchengine.config.Site;
 import searchengine.enums.Status;
 import searchengine.models.IndexEntity;
@@ -21,53 +20,54 @@ import searchengine.services.impl.LemmaService;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 
 public class MyThread extends Thread {
     private Site site;
-    private  SiteRepository siteRepository;
-    private  PageRepository pageRepository;
-//    @Value("${user-agent}")
-//    private String agentUser;
-//    @Value("${referrer}")
-//    private String referrer;
+    private SiteRepository siteRepository;
+    private PageRepository pageRepository;
     public MyThread(Site site, SiteRepository siteRepository, PageRepository pageRepository) {
         this.site = site;
         this.siteRepository = siteRepository;
         this.pageRepository = pageRepository;
     }
+
     @Override
     public void run() {
         SiteEntity siteEntity = transformSiteToSiteEntity(site);
         try {
             saveSiteAndSetSiteStatus(siteEntity, Status.INDEXING);
-            List<PageEntity> pageNames = getPageName(siteEntity);
-            siteEntity.setPages(pageNames);
+            ForkJoinPool forkJoinPool = new ForkJoinPool();
+            ForkJoinImpl forkJoin = new ForkJoinImpl(siteEntity.getUrl(), siteEntity);
+            forkJoinPool.invoke(forkJoin);
             parseLemmas(siteEntity);
             saveSiteAndSetSiteStatus(siteEntity, Status.INDEXED);
         } catch (Exception e) {
             saveSiteAndSetSiteStatus(siteEntity, Status.FAILED);
         }
     }
+
     private SiteEntity transformSiteToSiteEntity(Site site) {
         SiteEntity siteEntity = siteRepository.findByUrl(site.getUrl()).orElse(new SiteEntity());
         siteEntity.setName(site.getName());
         siteEntity.setUrl(site.getUrl());
         return siteEntity;
     }
+
     private SiteEntity saveSiteAndSetSiteStatus(SiteEntity siteEntity, Status status) {
         siteEntity.setStatus(status);
         siteEntity.setStatusTime(LocalDateTime.now());
         return siteRepository.save(siteEntity);
     }
 
-    private List<PageEntity> getPageName(SiteEntity siteEntity) {
-        List<PageEntity> result = new ArrayList<>();
+    private Set<PageEntity> getPageName(SiteEntity siteEntity) {
+        Set<PageEntity> result = new HashSet<>();
         PageEntity page;
         String agentUser = "Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6";
         String referrer = "http://www.google.com";
@@ -96,7 +96,6 @@ public class MyThread extends Thread {
                         Document pageDoc = Jsoup.connect(href).userAgent(agentUser)
                                 .referrer(referrer).get();
                         String stringContent = pageDoc.toString();
-
                         page.setContent(stringContent);
                         page.setCode(pageDoc.connection().response().statusCode());
                         if (pageRepository.findByPathAndSiteId(page.getPath(), page.getSite().getId()).isEmpty()) {
@@ -126,16 +125,17 @@ public class MyThread extends Thread {
             siteRepository.save(byId);
         }
     }
+
     private void parseLemmas(SiteEntity site) {
         LuceneMorphology luceneMorph;
-        List<LemmaEntity> lemmaEntities = new ArrayList<>();
+        Set<LemmaEntity> lemmaEntities = new HashSet<>();
         try {
             luceneMorph = new RussianLuceneMorphology();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         LemmaService lemmaService = new LemmaService(luceneMorph);
-        List<LemmaEntity> lemmas = site.getLemmas();
+        Set<LemmaEntity> lemmas = site.getLemmas();
         Map<String, LemmaEntity> lemmaListToMap = lemmas
                 .stream()
                 .collect(Collectors.toMap(LemmaEntity::getLemma, Function.identity()));

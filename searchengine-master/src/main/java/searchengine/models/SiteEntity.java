@@ -5,10 +5,9 @@ import lombok.*;
 import searchengine.enums.Status;
 
 import javax.persistence.*;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "site")
@@ -37,9 +36,9 @@ public class SiteEntity {
     @NotNull
     private String name;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "site")
-    private List<PageEntity> pages = new ArrayList<>();
+    private Set<PageEntity> pages = new HashSet<>();
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "site")
-    private List<LemmaEntity> lemmas = new ArrayList<>();
+    private Set<LemmaEntity> lemmas = new HashSet<>();
 
 
 }

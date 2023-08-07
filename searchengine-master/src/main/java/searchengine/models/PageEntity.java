@@ -22,9 +22,9 @@ public class PageEntity {
     private SiteEntity site;
     @Column(name = "path", columnDefinition = "TEXT", length = 1000, nullable = false)
     private String path;
-    @Column(name = "code", nullable = false)
+    @Column(name = "code")
     private Integer code;
-    @Column(name = "content", columnDefinition = "MEDIUMTEXT", nullable = false)
+    @Column(name = "content", columnDefinition = "MEDIUMTEXT")
     private String content;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "page")
     private List<IndexEntity> indexes = new ArrayList<>();
