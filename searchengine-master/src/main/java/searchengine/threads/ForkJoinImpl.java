@@ -8,6 +8,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import searchengine.models.PageEntity;
 import searchengine.models.SiteEntity;
+import searchengine.services.impl.IndexingServiceImpl;
 
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,20 +39,10 @@ public class ForkJoinImpl extends RecursiveAction {
             }
             for (Element element : elementLines) {
                 String href = element.attr("href");
+                if (!IndexingServiceImpl.isRun) {
+                    break;
+                }
                 if (pageSetLinks.containsKey(siteEntity.getUrl() + href)) {
-                    continue;
-                }
-                String[]s = (siteEntity.getUrl() + href).split("\\.");
-                if (s[s.length-1].equalsIgnoreCase("jpg")){
-                    continue;
-                }
-                if (s[s.length-1].equalsIgnoreCase("pdf")){
-                    continue;
-                }
-                if (s[s.length-1].equalsIgnoreCase("png")) {
-                    continue;
-                }
-                if (href.contains("/?")){
                     continue;
                 }
                 if (href.startsWith("/")) {
@@ -63,9 +54,9 @@ public class ForkJoinImpl extends RecursiveAction {
                     pageSetLinks.put(siteEntity.getUrl() + href, page);
                     siteEntity.getPages().add(page);
                     System.out.println(siteEntity.getUrl() + href + " страница для вывода " + pageSetLinks.size() + " - размер");
-                    ForkJoinImpl forkJoin = new ForkJoinImpl(siteEntity.getUrl() + href, siteEntity);
-                    forkJoin.fork();
-                    forkJoin.join();
+                        ForkJoinImpl forkJoin = new ForkJoinImpl(siteEntity.getUrl() + href, siteEntity);
+                        forkJoin.fork();
+                        forkJoin.join();
                 }
             }
         } catch (UnsupportedMimeTypeException exp) {
@@ -75,6 +66,8 @@ public class ForkJoinImpl extends RecursiveAction {
         } catch (IOException e) {
             System.out.println("RunTime error");
             throw new RuntimeException(e);
+        }catch (Exception exception){
+            System.out.println(exception.getMessage());
         }
     }
 }

@@ -17,8 +17,8 @@ spring:
 
 indexing-settings:
   sites:
-    - url: https://www.lenta.ru
-      name: Лента.ру
+    - url: https://liceum1.brestgoo.gov.by
+      name: Liceum
     - url: https://www.skillbox.ru
       name: Skillbox
     - url: https://www.playback.ru

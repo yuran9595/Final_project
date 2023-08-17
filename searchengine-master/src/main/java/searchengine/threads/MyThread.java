@@ -37,7 +37,6 @@ public class MyThread extends Thread {
         this.siteRepository = siteRepository;
         this.pageRepository = pageRepository;
     }
-
     @Override
     public void run() {
         SiteEntity siteEntity = transformSiteToSiteEntity(site);
@@ -46,8 +45,11 @@ public class MyThread extends Thread {
             ForkJoinPool forkJoinPool = new ForkJoinPool();
             ForkJoinImpl forkJoin = new ForkJoinImpl(siteEntity.getUrl(), siteEntity);
             forkJoinPool.invoke(forkJoin);
-            parseLemmas(siteEntity);
-            saveSiteAndSetSiteStatus(siteEntity, Status.INDEXED);
+            forkJoinPool.shutdown();
+            if (!siteRepository.findById(siteEntity.getId()).get().getStatus().equals(Status.FORCED_STOP)){
+                parseLemmas(siteEntity);
+                saveSiteAndSetSiteStatus(siteEntity, Status.INDEXED);
+            }
         } catch (Exception e) {
             saveSiteAndSetSiteStatus(siteEntity, Status.FAILED);
         }
