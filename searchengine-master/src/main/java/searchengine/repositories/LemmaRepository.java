@@ -17,6 +17,4 @@ public interface LemmaRepository extends JpaRepository<LemmaEntity, Integer> {
     void deleteFromLemma();
     int countBySite(SiteEntity site);
     Optional<LemmaEntity> findBySiteAndLemma(SiteEntity siteEntity, String lemma);
-    Optional<LemmaEntity> findLemmaEntityByLemmaAndSite (SiteEntity site, String lemma);
-    Optional<LemmaEntity> findLemmaEntityByLemmaAndSite (String lemma ,SiteEntity site );
 }

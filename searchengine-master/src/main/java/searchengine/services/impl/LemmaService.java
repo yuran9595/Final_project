@@ -52,7 +52,7 @@ public class LemmaService {
         return lemmas;
     }
 
-    private String[] arrayContainsRussianWords(String text) {
+    public String[] arrayContainsRussianWords(String text) {
         return text.toLowerCase(Locale.ROOT)
                 .replaceAll("([^а-я\\s])", " ")
                 .trim()
