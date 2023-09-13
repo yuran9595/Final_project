@@ -8,10 +8,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ApiResponseDTO {
-
         private boolean result;
         private String error;
-
         public ApiResponseDTO(boolean result) {
                 this.result = result;
         }

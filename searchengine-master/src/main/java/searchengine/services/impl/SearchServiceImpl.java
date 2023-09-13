@@ -85,6 +85,13 @@ public class SearchServiceImpl implements SearchService {
                     .map(Map.Entry::getKey)
                     .collect(Collectors.toList());
             searchDTO.setResult(true);
+            int j =0;
+            for (LemmaEntity element : lemmas) {
+                j += indexRepository.findMaxRelevance(element.getLemma(), siteEntity.getId()).orElse(0);
+            }
+            if (j==0){
+                j=1;
+            }
             for (PageEntity page : collect) {
                 SearchInfoDTO searchInfoDTO = new SearchInfoDTO();
                 searchInfoDTO.setSite(siteEntity.getUrl());
@@ -136,8 +143,12 @@ public class SearchServiceImpl implements SearchService {
                         }
                     }
                     searchInfoDTO.setSnippet(snippet.toString());
-                    searchInfoDTO.setRelevance(0.0);
-                    //   int i = indexRepository.findRelevance("курс", 152L, 54076L);
+                    int i = 0;
+                    for (LemmaEntity element : lemmas) {
+                        i += indexRepository.findRelevanceForPage(lemmas.get(0).getLemma(), siteEntity.getId(), page.getId()).orElse(0);
+                    }
+                    double relevance = i/(1.0*j);
+                    searchInfoDTO.setRelevance(relevance);
                     searchInfoDTOS.add(searchInfoDTO);
                 }
             }

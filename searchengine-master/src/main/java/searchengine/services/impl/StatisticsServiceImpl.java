@@ -16,40 +16,37 @@ import searchengine.services.StatisticsService;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class StatisticsServiceImpl implements StatisticsService {
-
-    private final Random random = new Random();
     private final SitesList sites;
-
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
     private final SiteRepository siteRepository;
-
     @Override
     public StatisticsResponse getStatistics() {
-//        String[] statuses = { "INDEXED", "FAILED", "INDEXING" };
-//        String[] errors = {
-//                "Ошибка индексации: главная страница сайта не доступна",
-//                "Ошибка индексации: сайт не доступен",
-//                ""
-//        };
         TotalStatistics total = new TotalStatistics();
+        List<Site> siteList = sites.getSites();
+        List<String> siteUrl = siteList.stream()
+                .map(site -> site.getUrl())
+                .collect(Collectors.toList());
+        List<SiteEntity> sitesFromBase = siteRepository.findAll();
+        for (SiteEntity siteFromBase : sitesFromBase) {
+            if (!siteUrl.contains(siteFromBase.getUrl())){
+                siteList.add(new Site(siteFromBase.getUrl(), siteFromBase.getName()));
+            }
+        }
         total.setSites(sites.getSites().size());
         total.setIndexing(true);
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
-        //      List<Site> sitesList = sites.getSites();
-//        for(int i = 0; i < sitesList.size(); i++) {
-//            Site site = sitesList.get(i);
         Iterable<SiteEntity> sites = siteRepository.findAll();
         for (SiteEntity siteEntity : sites) {
             DetailedStatisticsItem item = new DetailedStatisticsItem();
             item.setName(siteEntity.getName());
             item.setUrl(siteEntity.getUrl());
-           // int pages = pageRepository.findBySite(siteEntity).size();
+            // int pages = pageRepository.findBySite(siteEntity).size();
             int pages = pageRepository.countBySite(siteEntity);
             int lemmas = lemmaRepository.countBySite(siteEntity);
             item.setPages(pages);

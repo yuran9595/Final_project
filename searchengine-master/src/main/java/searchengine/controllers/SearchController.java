@@ -13,16 +13,13 @@ import searchengine.services.impl.SearchServiceImpl;
 @RequiredArgsConstructor
 @RequestMapping("/api")
 public class SearchController {
-
     private final SearchServiceImpl searchService;
-
     @GetMapping("/search")
     public ResponseEntity<?> search(@RequestParam(name = "query", defaultValue = "") String query,
                                     @RequestParam(name = "offset", defaultValue = "0") Integer offset,
                                     @RequestParam(name = "limit", defaultValue = "10") Integer limit,
                                     @RequestParam(name = "site", defaultValue = "All sites")String site) {
         SearchDTO searching = searchService.searching(query, offset, limit, site);
-
         return ResponseEntity.ok(searching);
     }
 }

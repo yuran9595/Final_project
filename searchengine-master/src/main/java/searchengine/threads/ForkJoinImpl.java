@@ -6,8 +6,10 @@ import org.jsoup.UnsupportedMimeTypeException;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.beans.factory.annotation.Autowired;
 import searchengine.models.PageEntity;
 import searchengine.models.SiteEntity;
+import searchengine.repositories.SiteRepository;
 import searchengine.services.impl.IndexingServiceImpl;
 
 import java.io.IOException;
@@ -17,6 +19,8 @@ import java.util.concurrent.RecursiveAction;
 public class ForkJoinImpl extends RecursiveAction {
     private String url;
     private SiteEntity siteEntity;
+    @Autowired
+    private SiteRepository siteRepository;
     public static volatile ConcurrentHashMap<String, PageEntity> pageSetLinks = new ConcurrentHashMap<>();
 
     public ForkJoinImpl(String url, SiteEntity siteEntity) {
@@ -54,20 +58,28 @@ public class ForkJoinImpl extends RecursiveAction {
                     pageSetLinks.put(siteEntity.getUrl() + href, page);
                     siteEntity.getPages().add(page);
                     System.out.println(siteEntity.getUrl() + href + " страница для вывода " + pageSetLinks.size() + " - размер");
-                        ForkJoinImpl forkJoin = new ForkJoinImpl(siteEntity.getUrl() + href, siteEntity);
-                        forkJoin.fork();
-                        forkJoin.join();
+                    ForkJoinImpl forkJoin = new ForkJoinImpl(siteEntity.getUrl() + href, siteEntity);
+                    forkJoin.fork();
+                    forkJoin.join();
                 }
             }
         } catch (UnsupportedMimeTypeException exp) {
+            setLastErrorToSite(siteEntity.getId(), String.valueOf(exp));
             System.out.println(" UnsupportedMimeTypeException ");
         } catch (HttpStatusException ex) {
             System.out.println("HttpStatusException");
         } catch (IOException e) {
             System.out.println("RunTime error");
             throw new RuntimeException(e);
-        }catch (Exception exception){
+        } catch (Exception exception) {
             System.out.println(exception.getMessage());
+        }
+    }
+    private void setLastErrorToSite(Integer siteId, String lastError) {
+        SiteEntity byId = siteRepository.findById(siteId).orElse(null);
+        if (byId != null) {
+            byId.setLastError(lastError);
+            siteRepository.save(byId);
         }
     }
 }

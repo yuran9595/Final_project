@@ -2,19 +2,12 @@ package searchengine.services.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jsoup.HttpStatusException;
-import org.jsoup.Jsoup;
-import org.jsoup.UnsupportedMimeTypeException;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.enums.Status;
-import searchengine.models.PageEntity;
 import searchengine.models.SiteEntity;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
@@ -22,10 +15,8 @@ import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.IndexingService;
 import searchengine.threads.ForkJoinImpl;
-import searchengine.threads.MyThread;
+import searchengine.threads.SiteThreadImpl;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -51,15 +42,23 @@ public class IndexingServiceImpl implements IndexingService {
         ForkJoinImpl.pageSetLinks = new ConcurrentHashMap<>();
         deleteAllInformationFromSite();
         List<Site> sites = sitesList.getSites();
+        List<String> siteUrl = sites.stream()
+                .map(site -> site.getUrl()).toList();
+        List<SiteEntity> sitesFromBase = siteRepository.findAll();
+        for (SiteEntity siteFromBase : sitesFromBase) {
+            if (!siteUrl.contains(siteFromBase.getUrl())) {
+                sites.add(new Site(siteFromBase.getUrl(), siteFromBase.getName()));
+            }
+        }
         int count = sites.size();
-        MyThread[] threads = new MyThread[count];
+        SiteThreadImpl[] threads = new SiteThreadImpl[count];
         isRun = true;
         try {
             for (int i = 0; i < count; i++) {
-                threads[i] = new MyThread(sites.get(i), siteRepository, pageRepository);
+                threads[i] = new SiteThreadImpl(sites.get(i), siteRepository, pageRepository);
                 threads[i].start();
             }
-            for (MyThread thread : threads) {
+            for (SiteThreadImpl thread : threads) {
                 thread.join();
             }
             isRun = false;
@@ -70,8 +69,6 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Transactional
     private void deleteAllInformationFromSite() {
-//        indexRepository.deleteAll();
-//        siteRepository.deleteAll();
         indexRepository.deleteFromIndex();
         pageRepository.deleteFromPage();
         lemmaRepository.deleteFromLemma();
@@ -79,73 +76,17 @@ public class IndexingServiceImpl implements IndexingService {
 
     }
 
-    private List<PageEntity> getPageName(SiteEntity siteEntity) {
-        List<PageEntity> result = new ArrayList<>();
-        PageEntity page;
-        int count = 0;
-        int count1 = 0;
-        try {
-            Document doc = Jsoup.connect(siteEntity.getUrl()).userAgent(agentUser)
-                    .referrer(referrer).get();
-            Elements elementLines = doc.getElementsByTag("a");
-            System.out.println(elementLines.size() + " -  Кол-во элементов ");
-            for (Element element : elementLines) {
-                String href = element.attr("href");
-                count++;
-                System.out.println(href + " - полученная страница " + count);
-                System.out.println("кол-во полученных страниц - " + count);
-                if (href.startsWith("/") || href.startsWith("http")) {
-                    page = new PageEntity();
-                    page.setSite(siteEntity);
-                    page.setPath(href);
-                    if (page.getPath().startsWith("http")) {
-                        href = page.getPath();
-                    } else {
-                        href = siteEntity.getUrl() + page.getPath();
-                    }
-                    try {
-                        Document pageDoc = Jsoup.connect(href).userAgent(agentUser)
-                                .referrer(referrer).get();
-                        String stringContent = pageDoc.toString();
-
-                        page.setContent(stringContent);
-                        page.setCode(pageDoc.connection().response().statusCode());
-                        if (pageRepository.findByPathAndSiteId(page.getPath(), page.getSite().getId()).isEmpty()) {
-                            result.add(page);
-                            count1++;
-                            System.out.println(page.getPath() + " - сохраненная страница" + count1);
-                            System.out.println("кол-во сохраненных страниц - " + count1);
-                        }
-                    } catch (UnsupportedMimeTypeException exp) {
-                        setLastErrorToSite(siteEntity.getId(), String.valueOf(exp));
-                    } catch (HttpStatusException ex) {
-                        page.setCode(ex.getStatusCode());
-                        page.setContent("No content");
-                        pageRepository.save(page);
-                    }
-                }
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        return result;
-    }
-
-    private void setLastErrorToSite(Integer siteId, String lastError) {
-        SiteEntity byId = siteRepository.findById(siteId).orElse(null);
-        if (byId != null) {
-            byId.setLastError(lastError);
-            siteRepository.save(byId);
-        }
-    }
-
     @Override
     public void stopIndexing() {
         isRun = false;
         for (SiteEntity siteEntity : siteRepository.findAll()) {
-            if (siteEntity.getStatus().equals(Status.INDEXING)) {
-                siteEntity.setStatus(Status.FORCED_STOP);
-                siteRepository.save(siteEntity);
+            try {
+                if (siteEntity.getStatus().equals(Status.INDEXING)) {
+                    siteEntity.setStatus(Status.FORCED_STOP);
+                    siteRepository.save(siteEntity);
+                }
+            } catch (Exception e) {
+                System.out.println(e.getMessage() + siteEntity.getUrl());
             }
         }
     }
