@@ -1,4 +1,4 @@
-package searchengine.threads;
+package searchengine.services.impl;
 
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
@@ -10,20 +10,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import searchengine.models.PageEntity;
 import searchengine.models.SiteEntity;
 import searchengine.repositories.SiteRepository;
-import searchengine.services.impl.IndexingServiceImpl;
 
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RecursiveAction;
 
-public class ForkJoinImpl extends RecursiveAction {
+public class WebCrawler extends RecursiveAction {
     private String url;
     private SiteEntity siteEntity;
     @Autowired
     private SiteRepository siteRepository;
     public static volatile ConcurrentHashMap<String, PageEntity> pageSetLinks = new ConcurrentHashMap<>();
 
-    public ForkJoinImpl(String url, SiteEntity siteEntity) {
+    public WebCrawler(String url, SiteEntity siteEntity) {
         this.url = url;
         this.siteEntity = siteEntity;
     }
@@ -33,7 +32,6 @@ public class ForkJoinImpl extends RecursiveAction {
         String agentUser = "Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6";
         String referrer = "http://www.google.com";
         PageEntity page = null;
-
         Document doc = null;
         try {
             doc = Jsoup.connect(url).userAgent(agentUser).referrer(referrer).get();
@@ -41,28 +39,7 @@ public class ForkJoinImpl extends RecursiveAction {
             if (elementLines.size() == 0) {
                 return;
             }
-            for (Element element : elementLines) {
-                String href = element.attr("href");
-                if (!IndexingServiceImpl.isRun) {
-                    break;
-                }
-                if (pageSetLinks.containsKey(siteEntity.getUrl() + href)) {
-                    continue;
-                }
-                if (href.startsWith("/")) {
-                    page = new PageEntity();
-                    page.setSite(siteEntity);
-                    page.setPath(href);
-                    page.setContent(doc.toString());
-                    page.setCode(doc.connection().response().statusCode());
-                    pageSetLinks.put(siteEntity.getUrl() + href, page);
-                    siteEntity.getPages().add(page);
-                    System.out.println(siteEntity.getUrl() + href + " страница для вывода " + pageSetLinks.size() + " - размер");
-                    ForkJoinImpl forkJoin = new ForkJoinImpl(siteEntity.getUrl() + href, siteEntity);
-                    forkJoin.fork();
-                    forkJoin.join();
-                }
-            }
+            processPageLinks(doc, elementLines);
         } catch (UnsupportedMimeTypeException exp) {
             setLastErrorToSite(siteEntity.getId(), String.valueOf(exp));
             System.out.println(" UnsupportedMimeTypeException ");
@@ -73,6 +50,32 @@ public class ForkJoinImpl extends RecursiveAction {
             throw new RuntimeException(e);
         } catch (Exception exception) {
             System.out.println(exception.getMessage());
+        }
+    }
+
+    private void processPageLinks(Document doc, Elements elementLines) {
+        PageEntity page;
+        for (Element element : elementLines) {
+            String href = element.attr("href");
+            if (!IndexingServiceImpl.isRun) {
+                break;
+            }
+            if (pageSetLinks.containsKey(siteEntity.getUrl() + href)) {
+                continue;
+            }
+            if (href.startsWith("/")) {
+                page = new PageEntity();
+                page.setSite(siteEntity);
+                page.setPath(href);
+                page.setContent(doc.toString());
+                page.setCode(doc.connection().response().statusCode());
+                pageSetLinks.put(siteEntity.getUrl() + href, page);
+                siteEntity.getPages().add(page);
+                System.out.println(siteEntity.getUrl() + href + " страница для вывода " + pageSetLinks.size() + " - размер");
+                WebCrawler forkJoin = new WebCrawler(siteEntity.getUrl() + href, siteEntity);
+                forkJoin.fork();
+                forkJoin.join();
+            }
         }
     }
     private void setLastErrorToSite(Integer siteId, String lastError) {

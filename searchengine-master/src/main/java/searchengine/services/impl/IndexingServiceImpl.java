@@ -14,8 +14,6 @@ import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.IndexingService;
-import searchengine.threads.ForkJoinImpl;
-import searchengine.threads.SiteThreadImpl;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,7 +37,7 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     public void indexing() {
-        ForkJoinImpl.pageSetLinks = new ConcurrentHashMap<>();
+        WebCrawler.pageSetLinks = new ConcurrentHashMap<>();
         deleteAllInformationFromSite();
         List<Site> sites = sitesList.getSites();
         List<String> siteUrl = sites.stream()
@@ -51,14 +49,14 @@ public class IndexingServiceImpl implements IndexingService {
             }
         }
         int count = sites.size();
-        SiteThreadImpl[] threads = new SiteThreadImpl[count];
+        SiteIndexerThread[] threads = new SiteIndexerThread[count];
         isRun = true;
         try {
             for (int i = 0; i < count; i++) {
-                threads[i] = new SiteThreadImpl(sites.get(i), siteRepository, pageRepository);
+                threads[i] = new SiteIndexerThread(sites.get(i), siteRepository, pageRepository);
                 threads[i].start();
             }
-            for (SiteThreadImpl thread : threads) {
+            for (SiteIndexerThread thread : threads) {
                 thread.join();
             }
             isRun = false;

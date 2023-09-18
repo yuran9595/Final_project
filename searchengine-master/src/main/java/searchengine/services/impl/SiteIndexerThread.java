@@ -1,4 +1,4 @@
-package searchengine.threads;
+package searchengine.services.impl;
 
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
@@ -10,7 +10,6 @@ import searchengine.models.PageEntity;
 import searchengine.models.SiteEntity;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
-import searchengine.services.impl.LemmaService;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -22,24 +21,23 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 
-public class SiteThreadImpl extends Thread {
+public class SiteIndexerThread extends Thread {
     private Site site;
     private SiteRepository siteRepository;
     private PageRepository pageRepository;
 
-    public SiteThreadImpl(Site site, SiteRepository siteRepository, PageRepository pageRepository) {
+    public SiteIndexerThread(Site site, SiteRepository siteRepository, PageRepository pageRepository) {
         this.site = site;
         this.siteRepository = siteRepository;
         this.pageRepository = pageRepository;
     }
-
     @Override
     public void run() {
         SiteEntity siteEntity = transformSiteToSiteEntity(site);
         try {
             saveSiteAndSetSiteStatus(siteEntity, Status.INDEXING);
             ForkJoinPool forkJoinPool = new ForkJoinPool();
-            ForkJoinImpl forkJoin = new ForkJoinImpl(siteEntity.getUrl(), siteEntity);
+            WebCrawler forkJoin = new WebCrawler(siteEntity.getUrl(), siteEntity);
             forkJoinPool.invoke(forkJoin);
             forkJoinPool.shutdown();
             if (!siteRepository.findById(siteEntity.getId()).get().getStatus().equals(Status.FORCED_STOP)) {
@@ -50,20 +48,17 @@ public class SiteThreadImpl extends Thread {
             saveSiteAndSetSiteStatus(siteEntity, Status.FAILED);
         }
     }
-
     private SiteEntity transformSiteToSiteEntity(Site site) {
         SiteEntity siteEntity = siteRepository.findByUrl(site.getUrl()).orElse(new SiteEntity());
         siteEntity.setName(site.getName());
         siteEntity.setUrl(site.getUrl());
         return siteEntity;
     }
-
     private SiteEntity saveSiteAndSetSiteStatus(SiteEntity siteEntity, Status status) {
         siteEntity.setStatus(status);
         siteEntity.setStatusTime(LocalDateTime.now());
         return siteRepository.save(siteEntity);
     }
-
     private void parseLemmas(SiteEntity site) {
         LuceneMorphology luceneMorph;
         Set<LemmaEntity> lemmaEntities = new HashSet<>();
