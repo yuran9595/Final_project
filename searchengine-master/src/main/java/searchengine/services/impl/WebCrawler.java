@@ -52,7 +52,6 @@ public class WebCrawler extends RecursiveAction {
             System.out.println(exception.getMessage());
         }
     }
-
     private void processPageLinks(Document doc, Elements elementLines) {
         PageEntity page;
         for (Element element : elementLines) {
