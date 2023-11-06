@@ -23,6 +23,6 @@ public class AddSiteController {
                     "указанных в конфигурационном файле\n"), HttpStatus.BAD_REQUEST);
         }
         siteService.addSite(url);
-        return ResponseEntity.ok("true");
+        return new ResponseEntity<>(new ApiResponseDTO(true), HttpStatus.OK);
     }
 }

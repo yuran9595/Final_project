@@ -30,11 +30,6 @@ public class IndexingServiceImpl implements IndexingService {
     private final LemmaRepository lemmaRepository;
     public static volatile boolean isRun = false;
 
-    @Value("${user-agent}")
-    private String agentUser;
-    @Value("${referrer}")
-    private String referrer;
-
     @Override
     public void indexing() {
         WebCrawler.pageSetLinks = new ConcurrentHashMap<>();

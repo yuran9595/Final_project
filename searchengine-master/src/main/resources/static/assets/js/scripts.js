@@ -1503,6 +1503,9 @@ var API = function(){
             address: '/indexPage',
             type: 'POST',
             action: function(result, $this){
+            console.log(result)
+            console.log($this)
+            console.log($this.next)
                 if (result.result){
                     if ($this.next('.API-error').length) {
                         $this.next('.API-error').remove();

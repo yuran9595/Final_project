@@ -1,5 +1,4 @@
 package searchengine.services.impl;
-
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 import searchengine.config.Site;
@@ -36,13 +35,16 @@ public class SiteIndexerThread extends Thread {
         SiteEntity siteEntity = transformSiteToSiteEntity(site);
         try {
             saveSiteAndSetSiteStatus(siteEntity, Status.INDEXING);
-            ForkJoinPool forkJoinPool = new ForkJoinPool();
+            ForkJoinPool forkJoinPool = new ForkJoinPool(12);
+            long start = System.currentTimeMillis();
             WebCrawler forkJoin = new WebCrawler(siteEntity.getUrl(), siteEntity);
             forkJoinPool.invoke(forkJoin);
             forkJoinPool.shutdown();
             if (!siteRepository.findById(siteEntity.getId()).get().getStatus().equals(Status.FORCED_STOP)) {
                 parseLemmas(siteEntity);
+                System.out.println(System.currentTimeMillis()-start + " Время окончания индексации сайта -  " + siteEntity.getName());
                 saveSiteAndSetSiteStatus(siteEntity, Status.INDEXED);
+                System.out.println();
             }
         } catch (Exception e) {
             saveSiteAndSetSiteStatus(siteEntity, Status.FAILED);

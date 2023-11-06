@@ -2,6 +2,8 @@
   <library name="Maven: antlr:antlr:2.7.7">
     <CLASSES>
       <root url="jar://$MAVEN_REPOSITORY$/antlr/antlr/2.7.7/antlr-2.7.7.jar!/" />
+      <root url="jar://$PROJECT_DIR$/.idea/libraries/morph-1.5.jar!/" />
+      <root url="jar://$PROJECT_DIR$/.idea/libraries/russian-1.5.jar!/" />
     </CLASSES>
     <JAVADOC>
       <root url="jar://$MAVEN_REPOSITORY$/antlr/antlr/2.7.7/antlr-2.7.7-javadoc.jar!/" />

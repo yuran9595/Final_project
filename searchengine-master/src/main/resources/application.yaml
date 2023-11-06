@@ -1,6 +1,6 @@
 # example values
 server:
-  port: 8081
+  port: 8080
 
 spring:
   datasource:
@@ -19,12 +19,12 @@ indexing-settings:
   sites:
     - url: https://liceum1.brestgoo.gov.by
       name: Liceum
-    - url: https://www.skillbox.ru
-      name: Skillbox
+#    - url: https://www.skillbox.ru
+#      name: Skillbox
 #    - url: https://www.playback.ru
 #      name: PlayBack.Ru
-    - url: http://radiomv.ru
-      name: Radiomv
+#    - url: http://radiomv.ru
+#      name: Radiomv
 
 
 user-agent: Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6
